@@ -130,14 +130,16 @@ else
     echo "❌ Failed to enable Bluetooth service."
 fi
 
-# Enable and start CoolerControl service
+# Enable and start CoolerControl daemon
 echo
 echo "❄️ Setting up CoolerControl..."
-if sudo systemctl enable --now coolercontrol.service; then
-    echo "✅ CoolerControl service enabled and started."
+if sudo systemctl enable --now coolercontrold.service; then
+    echo "✅ CoolerControl daemon enabled and started."
 else
-    echo "❌ Failed to enable CoolerControl service."
-    echo "ℹ️ If coolercontrol.service doesn't exist, you may need to start it manually after installation."
+    echo "❌ Failed to enable CoolerControl daemon."
+    echo "ℹ️ If coolercontrold.service doesn't exist, you may need to:"
+    echo "   1. Check if coolercontrol was installed correctly"
+    echo "   2. Run 'systemctl start coolercontrold' manually"
 fi
 
 echo
