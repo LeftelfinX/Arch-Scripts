@@ -14,69 +14,73 @@ sudo pacman -Syyu
 
 # Define the install buffer with descriptions, sorted by category
 install_buffer=(
-    
+
     # System Information & Monitoring
-    fastfetch             # Lightweight system information tool that displays OS/hardware info
-    btop                  # Beautiful, resource-efficient terminal process monitor
-    glances               # Cross-platform system monitor with web interface
-    mission-center        # System monitoring tool with detailed hardware statistics
-    s-tui                 # Terminal-based stress test and monitoring utility
+    fastfetch      # Lightweight system information tool that displays OS/hardware info
+    btop           # Beautiful, resource-efficient terminal process monitor
+    glances        # Cross-platform system monitor with web interface
+    mission-center # System monitoring tool with detailed hardware statistics
+    s-tui          # Terminal-based stress test and monitoring utility
 
     # GPU Tools
-    nvtop                 # GPU process monitoring (NVIDIA/AMD/Intel)
-    lact                  # Linux AMDGPU Controller for managing AMD GPU settings
-    opencl-amd            # AMD's OpenCL implementation for GPU acceleration
+    nvtop      # GPU process monitoring (NVIDIA/AMD/Intel)
+    lact       # Linux AMDGPU Controller for managing AMD GPU settings
+    opencl-amd # AMD's OpenCL implementation for GPU acceleration
 
     # Cooling Control
-    coolercontrol         # Advanced cooling control for GPUs/fans/liquid cooling
+    coolercontrol # Advanced cooling control for GPUs/fans/liquid cooling
 
     # Disk Utilities
-    filelight             # Disk usage analyzer with interactive pie charts
-    gnome-disk-utility    # GUI for disk management and S.M.A.R.T. monitoring
+    filelight          # Disk usage analyzer with interactive pie charts
+    gnome-disk-utility # GUI for disk management and S.M.A.R.T. monitoring
 
     # Boot Management
-    grub-customizer       # GUI tool for customizing GRUB bootloader settings
+    grub-customizer # GUI tool for customizing GRUB bootloader settings
 
     # Network & Connectivity
     networkmanager-openvpn # OpenVPN plugin for NetworkManager
-    bluez                 # Official Linux Bluetooth stack
-    bluez-utils           # Bluetooth utilities including bluetoothctl
+    bluez                  # Official Linux Bluetooth stack
+    bluez-utils            # Bluetooth utilities including bluetoothctl
 
     # Compression Tools
-    unzip                 # Extraction utility for ZIP archives
-    zip                   # Compression utility for ZIP archives
-    p7zip                 # High compression ratio utility (7z format)
-    unrar                 # Utility for extracting RAR archives
-    xz                    # Compression using LZMA/LZMA2 algorithm
-    tar                   # Classic tape archive utility
-    gzip                  # Standard GNU compression utility
-    bzip2                 # Compression using Burrows-Wheeler algorithm
-    lrzip                 # Multi-threaded compression for large files
-    lz4                   # Extremely fast compression algorithm
-    zstd                  # Modern compression algorithm (good speed/ratio)
+    unzip # Extraction utility for ZIP archives
+    zip   # Compression utility for ZIP archives
+    p7zip # High compression ratio utility (7z format)
+    unrar # Utility for extracting RAR archives
+    xz    # Compression using LZMA/LZMA2 algorithm
+    tar   # Classic tape archive utility
+    gzip  # Standard GNU compression utility
+    bzip2 # Compression using Burrows-Wheeler algorithm
+    lrzip # Multi-threaded compression for large files
+    lz4   # Extremely fast compression algorithm
+    zstd  # Modern compression algorithm (good speed/ratio)
 
     # File Management
-    tree                  # Recursive directory listing in tree format
+    tree # Recursive directory listing in tree format
 
     # Documentation
-    tldr                  # Simplified man pages with practical examples
-    man                   # Traditional Unix manual pages
+    tldr # Simplified man pages with practical examples
+    man  # Traditional Unix manual pages
 
     # Graphics & Display
-    gwenview              # Fast and versatile KDE image viewer
+    gwenview # Fast and versatile KDE image viewer
+
+    # Music and video
+    amberol # Modern offline music player
+    mpv     # video player
 
     # Web Browser
-    firefox               # Privacy-focused, open-source web browser
+    firefox # Privacy-focused, open-source web browser
 
     # Power Management
     power-profiles-daemon # System service for managing power modes
 
     # Fonts
-    noto-fonts-cjk        # Google Noto fonts with CJK support
-    ttf-firacode-nerd     # Programming font with ligatures/Nerd Font symbols
-    
+    noto-fonts-cjk    # Google Noto fonts with CJK support
+    ttf-firacode-nerd # Programming font with ligatures/Nerd Font symbols
+
     # KDE Configuration
-    konsave               # Save and restore KDE Plasma configurations
+    konsave # Save and restore KDE Plasma configurations
 )
 
 # Arrays for tracking status
