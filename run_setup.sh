@@ -79,6 +79,9 @@ install_buffer=(
     noto-fonts-cjk    # Google Noto fonts with CJK support
     ttf-firacode-nerd # Programming font with ligatures/Nerd Font symbols
 
+    # Package Manager
+    yay # Arch User Repository package manager
+
     # KDE Configuration
     konsave # Save and restore KDE Plasma configurations
 )
