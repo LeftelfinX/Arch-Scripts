@@ -6,6 +6,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -13,12 +14,75 @@ print_message() {
     echo -e "${2}${1}${NC}"
 }
 
-# Function to check if script is run with sudo
-check_sudo() {
-    if [ "$EUID" -ne 0 ]; then 
-        print_message "Please run this script with sudo privileges" "$RED"
-        print_message "Example: sudo $0" "$YELLOW"
+# Function to ask for admin password
+get_admin_password() {
+    print_message "\nAdministrator privileges are required for this script." "$YELLOW"
+    
+    # Try sudo -v to check if user can get sudo
+    if sudo -v &>/dev/null; then
+        print_message "✓ Administrator access granted" "$GREEN"
+        return 0
+    else
+        print_message "✗ Failed to get administrator privileges" "$RED"
         exit 1
+    fi
+}
+
+# Function to run command with sudo
+run_with_sudo() {
+    local cmd="$1"
+    local description="$2"
+    
+    print_message "→ $description..." "$BLUE"
+    
+    # Execute the command with sudo
+    if eval "sudo $cmd"; then
+        print_message "✓ $description completed successfully" "$GREEN"
+        return 0
+    else
+        print_message "✗ Failed to $description" "$RED"
+        return 1
+    fi
+}
+
+# Function to install ethtool if needed
+install_ethtool() {
+    if ! command -v ethtool &> /dev/null; then
+        print_message "ethtool is not installed. Installing..." "$YELLOW"
+        if command -v apt-get &> /dev/null; then
+            run_with_sudo "apt-get update && apt-get install -y ethtool" "install ethtool"
+        elif command -v yum &> /dev/null; then
+            run_with_sudo "yum install -y ethtool" "install ethtool"
+        elif command -v dnf &> /dev/null; then
+            run_with_sudo "dnf install -y ethtool" "install ethtool"
+        elif command -v pacman &> /dev/null; then
+            run_with_sudo "pacman -S --noconfirm ethtool" "install ethtool"
+        else
+            print_message "Could not install ethtool. Please install it manually." "$RED"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Function to get WoL status for an interface
+get_wol_status() {
+    local interface=$1
+    
+    # Only try to get WoL status if ethtool is installed
+    if command -v ethtool &> /dev/null; then
+        # Use sudo to get the status, but don't show errors
+        local wol_setting=$(sudo ethtool "$interface" 2>/dev/null | grep "Wake-on" | grep -v "Supports" | awk '{print $2}')
+        
+        if [ "$wol_setting" = "g" ]; then
+            echo "ENABLED"
+        elif [ "$wol_setting" = "d" ]; then
+            echo "DISABLED"
+        else
+            echo "UNKNOWN"
+        fi
+    else
+        echo "CHECKING..."
     fi
 }
 
@@ -42,17 +106,24 @@ list_interfaces() {
         status=$(ip link show "$interface" | grep -q "UP" && echo "UP" || echo "DOWN")
         mac=$(ip link show "$interface" | grep -o -E '([[:xdigit:]]{2}:){5}[[:xdigit:]]{2}' | head -1)
         
-        # Check if WoL is currently enabled
-        if command -v ethtool &> /dev/null; then
-            wol_status=$(ethtool "$interface" 2>/dev/null | grep "Wake-on" | grep -v "Supports" | awk '{print $2}')
-            if [ "$wol_status" = "g" ]; then
+        # Get WoL status
+        wol_status=$(get_wol_status "$interface")
+        
+        # Color code the WoL status
+        case $wol_status in
+            "ENABLED")
                 wol_display="$(print_message "WoL: ENABLED" "$GREEN")"
-            else
+                ;;
+            "DISABLED")
                 wol_display="$(print_message "WoL: DISABLED" "$RED")"
-            fi
-        else
-            wol_display="WoL: Unknown"
-        fi
+                ;;
+            "UNKNOWN")
+                wol_display="$(print_message "WoL: UNKNOWN" "$YELLOW")"
+                ;;
+            "CHECKING...")
+                wol_display="$(print_message "WoL: CHECKING..." "$CYAN")"
+                ;;
+        esac
         
         echo "$((i+1))) $interface - Status: $status - MAC: $mac - $wol_display"
     done
@@ -66,23 +137,13 @@ list_interfaces() {
 check_wol_support() {
     local interface=$1
     
-    # Check if ethtool is installed
-    if ! command -v ethtool &> /dev/null; then
-        print_message "ethtool is not installed. Installing..." "$YELLOW"
-        if command -v apt-get &> /dev/null; then
-            apt-get update && apt-get install -y ethtool
-        elif command -v yum &> /dev/null; then
-            yum install -y ethtool
-        elif command -v dnf &> /dev/null; then
-            dnf install -y ethtool
-        else
-            print_message "Could not install ethtool. Please install it manually." "$RED"
-            exit 1
-        fi
+    # Make sure ethtool is installed
+    if ! install_ethtool; then
+        return 1
     fi
     
     # Check WoL support
-    wol_support=$(ethtool "$interface" | grep "Supports Wake-on" | awk -F': ' '{print $2}')
+    wol_support=$(sudo ethtool "$interface" | grep "Supports Wake-on" | awk -F': ' '{print $2}')
     
     if [[ $wol_support == *"g"* ]]; then
         print_message "✓ Interface $interface supports Wake-on-LAN (magic packet)" "$GREEN"
@@ -97,15 +158,26 @@ check_wol_support() {
 check_wol_status() {
     local interface=$1
     
+    if ! install_ethtool; then
+        return 1
+    fi
+    
     if command -v ethtool &> /dev/null; then
-        current_wol=$(ethtool "$interface" 2>/dev/null | grep "Wake-on" | grep -v "Supports" | awk '{print $2}')
-        if [ "$current_wol" = "g" ]; then
-            print_message "✓ Wake-on-LAN is currently ENABLED on $interface" "$GREEN"
-            return 0
-        else
-            print_message "✗ Wake-on-LAN is currently DISABLED on $interface" "$RED"
-            return 1
-        fi
+        current_wol=$(sudo ethtool "$interface" 2>/dev/null | grep "Wake-on" | grep -v "Supports" | awk '{print $2}')
+        case $current_wol in
+            "g")
+                print_message "✓ Wake-on-LAN is currently ENABLED on $interface" "$GREEN"
+                return 0
+                ;;
+            "d")
+                print_message "✗ Wake-on-LAN is currently DISABLED on $interface" "$RED"
+                return 1
+                ;;
+            *)
+                print_message "? Wake-on-LAN status is UNKNOWN on $interface (Setting: $current_wol)" "$YELLOW"
+                return 2
+                ;;
+        esac
     fi
 }
 
@@ -116,18 +188,14 @@ enable_wol() {
     print_message "\nEnabling Wake-on-LAN for $interface..." "$BLUE"
     
     # Enable WoL using ethtool
-    ethtool -s "$interface" wol g
-    
-    if [ $? -eq 0 ]; then
-        print_message "✓ Wake-on-LAN enabled successfully for $interface" "$GREEN"
+    if run_with_sudo "ethtool -s $interface wol g" "enable Wake-on-LAN"; then
+        # Verify WoL is enabled
+        current_wol=$(sudo ethtool "$interface" | grep "Wake-on" | grep -v "Supports")
+        print_message "Current WoL setting: $current_wol" "$YELLOW"
+        return 0
     else
-        print_message "✗ Failed to enable Wake-on-LAN for $interface" "$RED"
-        exit 1
+        return 1
     fi
-    
-    # Verify WoL is enabled
-    current_wol=$(ethtool "$interface" | grep "Wake-on" | grep -v "Supports")
-    print_message "Current WoL setting: $current_wol" "$YELLOW"
 }
 
 # Function to disable WoL
@@ -137,18 +205,14 @@ disable_wol() {
     print_message "\nDisabling Wake-on-LAN for $interface..." "$BLUE"
     
     # Disable WoL using ethtool
-    ethtool -s "$interface" wol d
-    
-    if [ $? -eq 0 ]; then
-        print_message "✓ Wake-on-LAN disabled successfully for $interface" "$GREEN"
+    if run_with_sudo "ethtool -s $interface wol d" "disable Wake-on-LAN"; then
+        # Verify WoL is disabled
+        current_wol=$(sudo ethtool "$interface" | grep "Wake-on" | grep -v "Supports")
+        print_message "Current WoL setting: $current_wol" "$YELLOW"
+        return 0
     else
-        print_message "✗ Failed to disable Wake-on-LAN for $interface" "$RED"
-        exit 1
+        return 1
     fi
-    
-    # Verify WoL is disabled
-    current_wol=$(ethtool "$interface" | grep "Wake-on" | grep -v "Supports")
-    print_message "Current WoL setting: $current_wol" "$YELLOW"
 }
 
 # Function to create persistent service
@@ -157,9 +221,8 @@ create_persistent_service() {
     
     print_message "\nCreating persistent Wake-on-LAN service..." "$BLUE"
     
-    # Create systemd service file
-    cat > /etc/systemd/system/wol-enable.service << EOF
-[Unit]
+    # Create systemd service file using tee with sudo
+    echo "[Unit]
 Description=Enable Wake-on-LAN for $interface
 After=network.target
 
@@ -169,26 +232,18 @@ ExecStart=/usr/sbin/ethtool -s $interface wol g
 RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
-EOF
+WantedBy=multi-user.target" | sudo tee /etc/systemd/system/wol-enable.service > /dev/null
 
     # Also create a udev rule as backup
-    cat > /etc/udev/rules.d/99-wol-enable.rules << EOF
-# Enable Wake-on-LAN for $interface
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="$interface", RUN+="/usr/sbin/ethtool -s $interface wol g"
-EOF
+    echo "# Enable Wake-on-LAN for $interface
+ACTION==\"add\", SUBSYSTEM==\"net\", KERNEL==\"$interface\", RUN+=\"/usr/sbin/ethtool -s $interface wol g\"" | sudo tee /etc/udev/rules.d/99-wol-enable.rules > /dev/null
 
     # Enable and start the service
-    systemctl daemon-reload
-    systemctl enable wol-enable.service
-    systemctl start wol-enable.service
+    run_with_sudo "systemctl daemon-reload" "reload systemd"
+    run_with_sudo "systemctl enable wol-enable.service" "enable service at boot"
+    run_with_sudo "systemctl start wol-enable.service" "start service"
     
-    if [ $? -eq 0 ]; then
-        print_message "✓ Persistent Wake-on-LAN service created and enabled" "$GREEN"
-    else
-        print_message "✗ Failed to create persistent service" "$RED"
-        exit 1
-    fi
+    print_message "✓ Persistent Wake-on-LAN service created and enabled" "$GREEN"
 }
 
 # Function to remove persistent service
@@ -199,19 +254,17 @@ remove_persistent_service() {
     
     # Stop and disable systemd service
     if [ -f /etc/systemd/system/wol-enable.service ]; then
-        systemctl stop wol-enable.service 2>/dev/null
-        systemctl disable wol-enable.service 2>/dev/null
-        rm -f /etc/systemd/system/wol-enable.service
-        systemctl daemon-reload
-        print_message "✓ Systemd service removed" "$GREEN"
+        run_with_sudo "systemctl stop wol-enable.service" "stop service"
+        run_with_sudo "systemctl disable wol-enable.service" "disable service"
+        run_with_sudo "rm -f /etc/systemd/system/wol-enable.service" "remove service file"
+        run_with_sudo "systemctl daemon-reload" "reload systemd"
     fi
     
     # Remove udev rule
     if [ -f /etc/udev/rules.d/99-wol-enable.rules ]; then
-        rm -f /etc/udev/rules.d/99-wol-enable.rules
-        udevadm control --reload-rules
-        udevadm trigger
-        print_message "✓ Udev rule removed" "$GREEN"
+        run_with_sudo "rm -f /etc/udev/rules.d/99-wol-enable.rules" "remove udev rule"
+        run_with_sudo "udevadm control --reload-rules" "reload udev rules"
+        run_with_sudo "udevadm trigger" "trigger udev"
     fi
     
     print_message "✓ Persistent configuration removed" "$GREEN"
@@ -274,9 +327,9 @@ show_mac_address() {
     echo "Interface: $interface"
     echo "MAC Address: $mac_address"
     
-    # Check if WoL is enabled
+    # Check if WoL is enabled (requires sudo)
     if command -v ethtool &> /dev/null; then
-        current_wol=$(ethtool "$interface" 2>/dev/null | grep "Wake-on" | grep -v "Supports")
+        current_wol=$(sudo ethtool "$interface" 2>/dev/null | grep "Wake-on" | grep -v "Supports")
         echo "WoL Status: $current_wol"
     fi
     
@@ -307,15 +360,15 @@ verify_setup() {
     
     print_message "\nVerifying setup..." "$BLUE"
     
-    # Check service status
-    if systemctl is-active --quiet wol-enable.service; then
+    # Check service status (requires sudo for systemctl)
+    if sudo systemctl is-active --quiet wol-enable.service; then
         print_message "✓ Service is running" "$GREEN"
     else
         print_message "✗ Service is not running" "$RED"
     fi
     
     # Check if service is enabled
-    if systemctl is-enabled --quiet wol-enable.service; then
+    if sudo systemctl is-enabled --quiet wol-enable.service; then
         print_message "✓ Service is enabled at boot" "$GREEN"
     else
         print_message "✗ Service is not enabled at boot" "$RED"
@@ -327,8 +380,21 @@ verify_setup() {
     fi
     
     # Final WoL check
-    final_wol=$(ethtool "$interface" | grep "Wake-on" | grep -v "Supports")
+    final_wol=$(sudo ethtool "$interface" | grep "Wake-on" | grep -v "Supports")
     print_message "Final WoL setting: $final_wol" "$YELLOW"
+}
+
+# Function to refresh interface list with accurate WoL status
+refresh_display() {
+    clear
+    print_message "====================================" "$BLUE"
+    print_message "   WAKE-ON-LAN MANAGEMENT SCRIPT" "$BLUE"
+    print_message "====================================" "$BLUE"
+    
+    # Install ethtool if needed before showing status
+    install_ethtool &>/dev/null
+    
+    list_interfaces
 }
 
 # Main script execution
@@ -340,12 +406,18 @@ main() {
     print_message "   WAKE-ON-LAN MANAGEMENT SCRIPT" "$BLUE"
     print_message "====================================" "$BLUE"
     
-    # Check for sudo
-    check_sudo
+    # Ask for admin password at runtime
+    get_admin_password
+    
+    # Keep sudo alive in background
+    while true; do sudo -v; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+    
+    # Install ethtool now so we can show accurate status
+    install_ethtool
     
     while true; do
-        # List available interfaces
-        list_interfaces
+        # Refresh display with accurate WoL status
+        refresh_display
         
         # Get user selection
         echo ""
@@ -380,8 +452,6 @@ main() {
             print_message "\nThank you for using the Wake-on-LAN management script!" "$GREEN"
             break
         fi
-        
-        clear
     done
 }
 
