@@ -18,7 +18,7 @@ install_buffer=(
     # System Information & Monitoring
     fastfetch      # Lightweight system information tool that displays OS/hardware info
     btop           # Beautiful, resource-efficient terminal process monitor
-    glances        # Cross-platform system monitor with web interface
+    # glances        # Cross-platform system monitor with web interface
     mission-center # System monitoring tool with detailed hardware statistics
     s-tui          # Terminal-based stress test and monitoring utility
 
