@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "🔧 Base Packages Installer"
-echo "==========================="
+echo "🔧 Base Packages Installer/Uninstaller"
+echo "======================================="
 
 # Check if running as root
 if [ "$(id -u)" -eq 0 ]; then
@@ -9,13 +9,13 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
-# Define categories and packages
+# Define categories and packages (all from official repos)
 declare -A categories
 categories=(
     ["System Information & Monitoring"]="fastfetch btop mission-center s-tui"
-    ["GPU Tools"]="nvtop lact"
+    ["GPU Tools"]="nvtop"
     ["Disk Utilities"]="filelight gnome-disk-utility"
-    ["Network & Connectivity"]="networkmanager-openvpn bluez bluez-utils"
+    ["Network & Connectivity"]="networkmanager-openvpn"
     ["Compression Tools"]="unzip zip p7zip unrar xz tar gzip bzip2 lrzip lz4 zstd"
     ["File Management"]="tree"
     ["Documentation"]="tldr man"
@@ -23,7 +23,11 @@ categories=(
     ["Music and Video"]="amberol mpv"
     ["Power Management"]="power-profiles-daemon"
     ["Fonts"]="noto-fonts-cjk ttf-firacode-nerd"
-    ["KDE Configuration"]="konsave"
+    ["Essential CLI Tools"]="jq fzf ripgrep fd bat exa duf ncdu"
+    ["System Utilities"]="htop glances fastfetch"
+    ["Shell Enhancements"]="zsh zsh-completions zsh-syntax-highlighting zsh-autosuggestions"
+    ["Development Tools"]="git base-devel"
+    ["Network Tools"]="curl wget nmap traceroute"
 )
 
 # Package descriptions
@@ -36,7 +40,6 @@ declare -A descriptions=(
     
     # GPU Tools
     ["nvtop"]="GPU process monitoring (NVIDIA/AMD/Intel)"
-    ["lact"]="Linux AMDGPU Controller for managing AMD GPU settings"
     
     # Disk Utilities
     ["filelight"]="Disk usage analyzer with interactive pie charts"
@@ -44,8 +47,6 @@ declare -A descriptions=(
     
     # Network
     ["networkmanager-openvpn"]="OpenVPN plugin for NetworkManager"
-    ["bluez"]="Official Linux Bluetooth stack"
-    ["bluez-utils"]="Bluetooth utilities including bluetoothctl"
     
     # Compression
     ["unzip"]="Extraction utility for ZIP archives"
@@ -81,8 +82,36 @@ declare -A descriptions=(
     ["noto-fonts-cjk"]="Google Noto fonts with CJK support"
     ["ttf-firacode-nerd"]="Programming font with ligatures/Nerd Font symbols"
     
-    # KDE Configuration
-    ["konsave"]="Save and restore KDE Plasma configurations"
+    # Essential CLI Tools
+    ["jq"]="Command-line JSON processor"
+    ["fzf"]="Command-line fuzzy finder"
+    ["ripgrep"]="Line-oriented search tool"
+    ["fd"]="Simple and fast alternative to find"
+    ["bat"]="Cat clone with syntax highlighting"
+    ["exa"]="Modern replacement for ls"
+    ["duf"]="Disk usage/free utility"
+    ["ncdu"]="NCurses disk usage analyzer"
+    
+    # System Utilities
+    ["htop"]="Interactive process viewer"
+    ["glances"]="Cross-platform system monitoring tool"
+    ["fastfetch"]="Lightweight system information tool (faster alternative to neofetch)"
+    
+    # Shell Enhancements
+    ["zsh"]="Z shell"
+    ["zsh-completions"]="Additional completion definitions for Zsh"
+    ["zsh-syntax-highlighting"]="Syntax highlighting for Zsh"
+    ["zsh-autosuggestions"]="Fish-like autosuggestions for Zsh"
+    
+    # Development Tools
+    ["git"]="Distributed version control system"
+    ["base-devel"]="Essential development tools"
+    
+    # Network Tools
+    ["curl"]="Command-line tool for transferring data"
+    ["wget"]="Network downloader"
+    ["nmap"]="Network exploration tool"
+    ["traceroute"]="Trace the route to a host"
 )
 
 # Function to check if package is installed
@@ -112,11 +141,11 @@ for pkg in "${all_packages[@]}"; do
     fi
 done
 
-# Simple menu function
-show_menu() {
+# Simple menu function for install mode
+show_install_menu() {
     clear
-    echo "📦 Package Selection (enter numbers to toggle, 'a' for all, 'd' when done)"
-    echo "=========================================================================="
+    echo "📦 INSTALL MODE - Package Selection (enter numbers to toggle, 'a' for all, 'd' when done)"
+    echo "=========================================================================================="
     echo
     
     current_category=""
@@ -148,214 +177,335 @@ show_menu() {
     echo "  [a] Select all available packages"
     echo "  [u] Select only uninstalled packages"
     echo "  [c] Clear all selections"
-    echo "  [r] Reverse selections (select/deselect all)"
-    echo "  [x] Uninstall all selected packages (danger!)"
+    echo "  [r] Reverse selections (select/deselect all available)"
     echo "  [d] Done - proceed with installation"
+    echo "  [m] Switch to UNINSTALL mode"
     echo
 }
 
-# Main menu loop
-while true; do
-    show_menu
-    read -p "Enter choice: " choice
+# Simple menu function for uninstall mode
+show_uninstall_menu() {
+    clear
+    echo "🗑️  UNINSTALL MODE - Package Selection (enter numbers to toggle, 'A' for all installed, 'd' when done)"
+    echo "========================================================================================================"
+    echo
     
-    case $choice in
-        d|D)
-            break
-            ;;
-        a|A)
-            # Select all available packages
-            for i in "${!selections[@]}"; do
-                if [[ "${selections[$i]}" != "installed" ]]; then
-                    selections[$i]="selected"
-                fi
-            done
-            echo "✅ All available packages selected"
-            sleep 1
-            ;;
-        u|U)
-            # Select only uninstalled packages
-            for i in "${!selections[@]}"; do
-                if [[ "${selections[$i]}" == "available" ]]; then
-                    selections[$i]="selected"
-                fi
-            done
-            echo "✅ All uninstalled packages selected"
-            sleep 1
-            ;;
-        c|C)
-            # Clear selections
-            for i in "${!selections[@]}"; do
-                if [[ "${selections[$i]}" == "selected" ]]; then
-                    selections[$i]="available"
-                fi
-            done
-            echo "✅ Selections cleared"
-            sleep 1
-            ;;
-        r|R)
-            # Reverse selections (select/deselect all available packages)
-            for i in "${!selections[@]}"; do
-                if [[ "${selections[$i]}" == "available" ]]; then
-                    selections[$i]="selected"
-                elif [[ "${selections[$i]}" == "selected" ]]; then
-                    selections[$i]="available"
-                fi
-                # installed packages remain unchanged
-            done
-            echo "🔄 Selections reversed"
-            sleep 1
-            ;;
-        x|X)
-            # Uninstall all selected packages
+    current_category=""
+    for i in "${!all_packages[@]}"; do
+        pkg="${all_packages[$i]}"
+        category="${package_categories[$i]}"
+        status="${selections[$i]}"
+        
+        # Show category header
+        if [[ "$category" != "$current_category" ]]; then
+            current_category="$category"
             echo
-            echo "⚠️  DANGER: You are about to uninstall packages!"
-            
-            # Collect packages to uninstall (selected ones that are installed)
-            to_uninstall=()
-            for i in "${!selections[@]}"; do
-                if [[ "${selections[$i]}" == "selected" ]] && is_installed "${all_packages[$i]}"; then
-                    to_uninstall+=("${all_packages[$i]}")
-                fi
-            done
-            
-            if [ ${#to_uninstall[@]} -eq 0 ]; then
-                echo "ℹ️  No installed packages are currently selected for uninstall."
-                echo "Press any key to continue..."
-                read -n 1
-                continue
-            fi
-            
-            echo
-            echo "📦 The following packages will be REMOVED:"
-            printf ' - %s\n' "${to_uninstall[@]}"
-            echo
-            read -p "Are you ABSOLUTELY SURE? This cannot be undone! (type 'yes' to confirm): " confirm
-            echo
-            
-            if [[ "$confirm" == "yes" ]]; then
-                echo "🗑️  Uninstalling packages..."
-                uninstall_success=()
-                uninstall_failed=()
-                
-                for pkg in "${to_uninstall[@]}"; do
-                    echo "➡️ Removing $pkg..."
-                    if sudo pacman -Rns --noconfirm "$pkg"; then
-                        echo "✅ $pkg uninstalled successfully."
-                        uninstall_success+=("$pkg")
-                        # Update selection status
-                        for i in "${!all_packages[@]}"; do
-                            if [[ "${all_packages[$i]}" == "$pkg" ]]; then
-                                selections[$i]="available"
-                                break
-                            fi
-                        done
-                    else
-                        echo "❌ Failed to uninstall $pkg."
-                        uninstall_failed+=("$pkg")
-                    fi
-                    echo
-                done
-                
-                # Show uninstall summary
-                echo
-                echo "📊 Uninstall Summary"
-                echo "===================="
-                if [ ${#uninstall_success[@]} -gt 0 ]; then
-                    echo "✅ Successfully uninstalled:"
-                    printf ' - %s\n' "${uninstall_success[@]}"
-                fi
-                if [ ${#uninstall_failed[@]} -gt 0 ]; then
-                    echo "❌ Failed to uninstall:"
-                    printf ' - %s\n' "${uninstall_failed[@]}"
-                fi
-                echo
-                echo "Press any key to return to menu..."
-                read -n 1
-            else
-                echo "❌ Uninstall cancelled."
-                sleep 1
-            fi
-            ;;
-        *)
-            # Check if it's a number
-            if [[ "$choice" =~ ^[0-9]+$ ]]; then
-                index=$((choice-1))
-                if [[ $index -ge 0 && $index -lt ${#all_packages[@]} ]]; then
-                    if [[ "${selections[$index]}" == "available" ]]; then
-                        selections[$index]="selected"
-                        echo "✅ Selected: ${all_packages[$index]}"
-                    elif [[ "${selections[$index]}" == "selected" ]]; then
-                        selections[$index]="available"
-                        echo "❌ Deselected: ${all_packages[$index]}"
-                    elif [[ "${selections[$index]}" == "installed" ]]; then
-                        # Allow toggling installed packages for uninstall
-                        selections[$index]="selected"
-                        echo "⚠️  Marked for uninstall: ${all_packages[$index]}"
-                    fi
-                    sleep 1
-                else
-                    echo "❌ Invalid number. Please enter 1-${#all_packages[@]}"
-                    sleep 1
-                fi
-            else
-                echo "❌ Invalid option. Please enter a number, a, u, c, r, x, or d"
-                sleep 1
-            fi
-            ;;
-    esac
-done
-
-# Collect selected packages for installation (excluding already installed ones)
-selected_for_install=()
-selected_for_uninstall=()
-
-for i in "${!selections[@]}"; do
-    pkg="${all_packages[$i]}"
-    status="${selections[$i]}"
-    
-    if [[ "$status" == "selected" ]]; then
-        if is_installed "$pkg"; then
-            selected_for_uninstall+=("$pkg")
-        else
-            selected_for_install+=("$pkg")
+            echo "$current_category"
+            echo "-----------------"
         fi
-    fi
-done
+        
+        # Show package with selection
+        index=$((i+1))
+        if [[ "$status" == "installed" ]] || [[ "$status" == "selected_for_uninstall" ]]; then
+            if [[ "$status" == "selected_for_uninstall" ]]; then
+                echo "  [$index] 🔴 $pkg (marked for removal) - ${descriptions[$pkg]}"
+            else
+                echo "  [$index] ✅ $pkg (installed) - ${descriptions[$pkg]}"
+            fi
+        else
+            echo "  [$index] ⬜ $pkg (not installed) - ${descriptions[$pkg]}"
+        fi
+    done
+    
+    echo
+    echo "  [A] Select ALL installed packages for removal"
+    echo "  [c] Clear all selections"
+    echo "  [d] Done - proceed with uninstallation"
+    echo "  [m] Switch to INSTALL mode"
+    echo
+}
 
-# Handle uninstall first if any packages are marked for uninstall
-if [ ${#selected_for_uninstall[@]} -gt 0 ]; then
-    echo
-    echo "⚠️  The following installed packages are marked for UNINSTALL:"
-    printf ' - %s\n' "${selected_for_uninstall[@]}"
-    echo
-    read -p "Do you want to uninstall these packages before installing? (y/n): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "🗑️  Uninstalling packages..."
-        for pkg in "${selected_for_uninstall[@]}"; do
+# Main menu loop for mode selection
+echo "Select mode:"
+echo "  1) Install packages"
+echo "  2) Uninstall packages"
+read -p "Enter choice (1 or 2): " mode_choice
+echo
+
+if [[ "$mode_choice" == "2" ]]; then
+    # UNINSTALL MODE
+    echo "🗑️  Uninstall Mode selected"
+    sleep 1
+    
+    # Initialize selections for uninstall
+    for i in "${!selections[@]}"; do
+        if [[ "${selections[$i]}" == "installed" ]]; then
+            selections[$i]="installed"
+        else
+            selections[$i]="available"
+        fi
+    done
+    
+    # Uninstall menu loop
+    while true; do
+        show_uninstall_menu
+        read -p "Enter choice: " choice
+        
+        case $choice in
+            d|D)
+                break
+                ;;
+            m|M)
+                echo "Switching to Install mode..."
+                mode_choice="1"
+                sleep 1
+                break
+                ;;
+            A)
+                # Select all installed packages for removal
+                for i in "${!selections[@]}"; do
+                    if [[ "${selections[$i]}" == "installed" ]]; then
+                        selections[$i]="selected_for_uninstall"
+                    fi
+                done
+                echo "✅ All installed packages marked for removal"
+                sleep 1
+                ;;
+            c|C)
+                # Clear selections
+                for i in "${!selections[@]}"; do
+                    if [[ "${selections[$i]}" == "selected_for_uninstall" ]]; then
+                        selections[$i]="installed"
+                    fi
+                done
+                echo "✅ Selections cleared"
+                sleep 1
+                ;;
+            *)
+                # Check if it's a number
+                if [[ "$choice" =~ ^[0-9]+$ ]]; then
+                    index=$((choice-1))
+                    if [[ $index -ge 0 && $index -lt ${#all_packages[@]} ]]; then
+                        if [[ "${selections[$index]}" == "installed" ]]; then
+                            selections[$index]="selected_for_uninstall"
+                            echo "🔴 Marked for removal: ${all_packages[$index]}"
+                        elif [[ "${selections[$index]}" == "selected_for_uninstall" ]]; then
+                            selections[$index]="installed"
+                            echo "✅ Unmarked for removal: ${all_packages[$index]}"
+                        elif [[ "${selections[$index]}" == "available" ]]; then
+                            echo "ℹ️  ${all_packages[$index]} is not installed and cannot be uninstalled"
+                        fi
+                        sleep 1
+                    else
+                        echo "❌ Invalid number. Please enter 1-${#all_packages[@]}"
+                        sleep 1
+                    fi
+                else
+                    echo "❌ Invalid option. Please enter a number, A, c, d, or m"
+                    sleep 1
+                fi
+                ;;
+        esac
+    done
+    
+    # If we switched to install mode, continue with install
+    if [[ "$mode_choice" != "2" ]]; then
+        # Reset selections for install mode
+        for i in "${!selections[@]}"; do
+            if is_installed "${all_packages[$i]}"; then
+                selections[$i]="installed"
+            else
+                selections[$i]="available"
+            fi
+        done
+    else
+        # Collect packages to uninstall
+        uninstall_packages=()
+        for i in "${!selections[@]}"; do
+            if [[ "${selections[$i]}" == "selected_for_uninstall" ]]; then
+                uninstall_packages+=("${all_packages[$i]}")
+            fi
+        done
+        
+        if [ ${#uninstall_packages[@]} -eq 0 ]; then
+            echo "❌ No packages selected for uninstallation. Exiting."
+            exit 0
+        fi
+        
+        echo
+        echo "🗑️  Packages to uninstall:"
+        printf ' - %s\n' "${uninstall_packages[@]}"
+        echo
+        
+        read -p "Proceed with uninstallation? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Uninstallation cancelled."
+            exit 0
+        fi
+        
+        # Arrays to track uninstall results
+        successfully_uninstalled=()
+        failed_uninstalls=()
+        
+        # Uninstall packages
+        echo
+        echo "⬇️ Uninstalling packages..."
+        for pkg in "${uninstall_packages[@]}"; do
             echo "➡️ Removing $pkg..."
             if sudo pacman -Rns --noconfirm "$pkg"; then
                 echo "✅ $pkg uninstalled successfully."
+                successfully_uninstalled+=("$pkg")
             else
                 echo "❌ Failed to uninstall $pkg."
+                failed_uninstalls+=("$pkg")
             fi
             echo
         done
-    else
-        echo "❌ Uninstall skipped. These packages will remain installed."
+        
+        # Final uninstall summary
+        echo
+        echo "📊 Uninstallation Summary"
+        echo "========================"
+        
+        if [ ${#successfully_uninstalled[@]} -gt 0 ]; then
+            echo "✅ Successfully uninstalled:"
+            printf ' - %s\n' "${successfully_uninstalled[@]}"
+            echo
+        fi
+        
+        if [ ${#failed_uninstalls[@]} -gt 0 ]; then
+            echo "❌ Failed to uninstall:"
+            printf ' - %s\n' "${failed_uninstalls[@]}"
+            echo
+        fi
+        
+        # Overall status
+        if [ ${#failed_uninstalls[@]} -eq 0 ]; then
+            echo "🎉 All packages uninstalled successfully!"
+        else
+            echo "⚠️  Uninstallation completed with ${#failed_uninstalls[@]} failure(s)."
+            exit 1
+        fi
+        
+        echo
+        echo "🎉 Package uninstallation complete!"
+        exit 0
     fi
 fi
 
-# Proceed with installation if there are packages to install
-if [ ${#selected_for_install[@]} -eq 0 ]; then
+# INSTALL MODE
+if [[ "$mode_choice" == "1" ]]; then
+    echo "📦 Install Mode selected"
+    sleep 1
+    
+    # Install menu loop
+    while true; do
+        show_install_menu
+        read -p "Enter choice: " choice
+        
+        case $choice in
+            d|D)
+                break
+                ;;
+            m|M)
+                echo "Switching to Uninstall mode..."
+                mode_choice="2"
+                sleep 1
+                break
+                ;;
+            a|A)
+                # Select all available packages
+                for i in "${!selections[@]}"; do
+                    if [[ "${selections[$i]}" != "installed" ]]; then
+                        selections[$i]="selected"
+                    fi
+                done
+                echo "✅ All available packages selected"
+                sleep 1
+                ;;
+            u|U)
+                # Select only uninstalled packages
+                for i in "${!selections[@]}"; do
+                    if [[ "${selections[$i]}" == "available" ]]; then
+                        selections[$i]="selected"
+                    fi
+                done
+                echo "✅ All uninstalled packages selected"
+                sleep 1
+                ;;
+            c|C)
+                # Clear selections
+                for i in "${!selections[@]}"; do
+                    if [[ "${selections[$i]}" == "selected" ]]; then
+                        selections[$i]="available"
+                    fi
+                done
+                echo "✅ Selections cleared"
+                sleep 1
+                ;;
+            r|R)
+                # Reverse selections (select/deselect all available packages)
+                for i in "${!selections[@]}"; do
+                    if [[ "${selections[$i]}" == "available" ]]; then
+                        selections[$i]="selected"
+                    elif [[ "${selections[$i]}" == "selected" ]]; then
+                        selections[$i]="available"
+                    fi
+                    # installed packages remain unchanged
+                done
+                echo "🔄 Selections reversed"
+                sleep 1
+                ;;
+            *)
+                # Check if it's a number
+                if [[ "$choice" =~ ^[0-9]+$ ]]; then
+                    index=$((choice-1))
+                    if [[ $index -ge 0 && $index -lt ${#all_packages[@]} ]]; then
+                        if [[ "${selections[$index]}" == "available" ]]; then
+                            selections[$index]="selected"
+                            echo "✅ Selected: ${all_packages[$index]}"
+                        elif [[ "${selections[$index]}" == "selected" ]]; then
+                            selections[$index]="available"
+                            echo "❌ Deselected: ${all_packages[$index]}"
+                        elif [[ "${selections[$index]}" == "installed" ]]; then
+                            echo "ℹ️  ${all_packages[$index]} is already installed and cannot be selected for install"
+                        fi
+                        sleep 1
+                    else
+                        echo "❌ Invalid number. Please enter 1-${#all_packages[@]}"
+                        sleep 1
+                    fi
+                else
+                    echo "❌ Invalid option. Please enter a number, a, u, c, r, d, or m"
+                    sleep 1
+                fi
+                ;;
+        esac
+    done
+    
+    # If we switched to uninstall mode, restart the script logic
+    if [[ "$mode_choice" != "1" ]]; then
+        exec "$0"
+    fi
+fi
+
+# Collect selected packages for installation (excluding already installed ones)
+selected_packages=()
+for i in "${!selections[@]}"; do
+    if [[ "${selections[$i]}" == "selected" ]]; then
+        selected_packages+=("${all_packages[$i]}")
+    fi
+done
+
+if [ ${#selected_packages[@]} -eq 0 ]; then
     echo "❌ No new packages selected for installation. Exiting."
     exit 0
 fi
 
 echo
 echo "📦 Packages to install:"
-printf ' - %s\n' "${selected_for_install[@]}"
+printf ' - %s\n' "${selected_packages[@]}"
 echo
 
 read -p "Proceed with installation? (y/n): " -n 1 -r
@@ -377,7 +527,7 @@ failed_installs=()
 # Install packages
 echo
 echo "⬇️ Installing selected packages..."
-for pkg in "${selected_for_install[@]}"; do
+for pkg in "${selected_packages[@]}"; do
     echo "➡️ Installing $pkg..."
     if sudo pacman -S --noconfirm "$pkg"; then
         echo "✅ $pkg installed successfully."
@@ -389,7 +539,7 @@ for pkg in "${selected_for_install[@]}"; do
     echo
 done
 
-# Final summary
+# Final installation summary
 echo
 echo "📊 Installation Summary"
 echo "======================"
@@ -412,6 +562,24 @@ if [ ${#failed_installs[@]} -eq 0 ]; then
 else
     echo "⚠️  Installation completed with ${#failed_installs[@]} failure(s)."
     exit 1
+fi
+
+# Optional post-install configurations
+echo
+echo "🔧 Additional Configuration Options"
+echo "==================================="
+
+# Set Zsh as default shell if installed
+if is_installed "zsh"; then
+    read -p "Do you want to set Zsh as your default shell? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if chsh -s $(which zsh); then
+            echo "✅ Default shell changed to Zsh. You'll need to log out and back in for changes to take effect."
+        else
+            echo "❌ Failed to change default shell"
+        fi
+    fi
 fi
 
 echo
